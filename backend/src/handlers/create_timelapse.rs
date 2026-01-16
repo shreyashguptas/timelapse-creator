@@ -49,17 +49,47 @@ pub async fn create_timelapse_handler(
     let job_store_clone = job_store.clone();
     
     actix_web::rt::spawn(async move {
+        // #region agent log
+        let log_path = std::path::Path::new("/Users/shreyashgupta/Documents/Github/timelapse-creator/.cursor/debug.log");
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"create_timelapse.rs:51\",\"message\":\"spawned async task\",\"data\":{{\"job_id\":\"{}\",\"fps\":{},\"rotation\":{}}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), job_id_clone, fps, rotation).as_bytes());
+        }
+        // #endregion
+        
         let frames_dir = get_frames_directory(&job_id_clone);
         let output_path = get_output_path(&job_id_clone);
         
+        // #region agent log
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"create_timelapse.rs:55\",\"message\":\"paths before create_timelapse\",\"data\":{{\"frames_dir\":\"{}\",\"output_path\":\"{}\",\"frames_dir_exists\":{},\"output_dir_exists\":{}}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), frames_dir.display(), output_path.display(), frames_dir.exists(), output_path.parent().map(|p| p.exists()).unwrap_or(false)).as_bytes());
+        }
+        // #endregion
+        
         match create_timelapse(&job_id_clone, frames_dir, output_path, fps, rotation) {
             Ok(_) => {
+                // #region agent log
+                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+                    let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"create_timelapse.rs:59\",\"message\":\"timelapse creation succeeded\",\"data\":{{\"job_id\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), job_id_clone).as_bytes());
+                }
+                // #endregion
                 let mut store = job_store_clone.lock().unwrap();
                 store.insert(job_id_clone.clone(), JobStatusType::Completed);
             }
             Err(e) => {
+                let error_msg = format!("{}", e);
+                // #region agent log
+                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+                    let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"create_timelapse.rs:65\",\"message\":\"timelapse creation failed\",\"data\":{{\"job_id\":\"{}\",\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), job_id_clone, error_msg).as_bytes());
+                }
+                // #endregion
                 let mut store = job_store_clone.lock().unwrap();
-                store.insert(job_id_clone.clone(), JobStatusType::Failed(e.to_string()));
+                // Truncate error message if too long for UI
+                let display_error = if error_msg.len() > 500 {
+                    format!("{}...", &error_msg[..500])
+                } else {
+                    error_msg.clone()
+                };
+                store.insert(job_id_clone.clone(), JobStatusType::Failed(display_error));
             }
         }
     });

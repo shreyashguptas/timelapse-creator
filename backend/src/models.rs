@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UploadResponse {
     pub job_id: String,
     pub file_count: usize,
@@ -8,6 +9,7 @@ pub struct UploadResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateTimelapseRequest {
     pub job_id: String,
     pub rotation: u32,
@@ -15,6 +17,7 @@ pub struct CreateTimelapseRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateTimelapseResponse {
     pub job_id: String,
     pub status: String,

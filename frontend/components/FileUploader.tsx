@@ -38,9 +38,18 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
       // Upload files
       const response = await uploadFiles(imageFiles);
       setUploadProgress(100);
+      
+      // Validate response has required fields
+      if (!response.jobId || !response.fileCount) {
+        throw new Error('Invalid response from server');
+      }
+      
       onUploadComplete(response);
     } catch (err) {
+      console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
+      setIsUploading(false);
+      return;
     } finally {
       setIsUploading(false);
     }

@@ -18,9 +18,14 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   const handleUploadComplete = (response: UploadResponse) => {
-    setJobId(response.jobId);
-    setFileCount(response.fileCount);
-    setStep('preview');
+    console.log('Upload complete:', response);
+    if (response.jobId && response.fileCount > 0) {
+      setJobId(response.jobId);
+      setFileCount(response.fileCount);
+      setStep('preview');
+    } else {
+      setError('Invalid upload response. Please try again.');
+    }
   };
 
   const handleCreateTimelapse = async () => {
@@ -54,6 +59,11 @@ export default function Home() {
         {step === 'upload' && (
           <div className="space-y-6">
             <FileUploader onUploadComplete={handleUploadComplete} />
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
           </div>
         )}
 

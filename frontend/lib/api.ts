@@ -29,16 +29,27 @@ export async function uploadFiles(files: File[]): Promise<UploadResponse> {
     formData.append('files', file);
   });
 
-  const response = await fetch(`${API_URL}/api/upload`, {
-    method: 'POST',
-    body: formData,
-  });
+  try {
+    const response = await fetch(`${API_URL}/api/upload`, {
+      method: 'POST',
+      body: formData,
+    });
 
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${response.statusText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Upload failed:', response.status, errorText);
+      throw new Error(`Upload failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Upload response:', data);
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(`Cannot connect to backend at ${API_URL}. Make sure the backend is running.`);
+    }
+    throw error;
   }
-
-  return response.json();
 }
 
 export function getPreviewUrl(jobId: string, index: number): string {

@@ -65,22 +65,23 @@ pub fn create_timelapse(
     }
     // #endregion
     
-    // Check if FFmpeg exists
-    // #region agent log
+    // Check if FFmpeg exists before trying to use it
     let ffmpeg_check = Command::new("ffmpeg").arg("-version").output();
-    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-        let ffmpeg_available = match ffmpeg_check {
-            Ok(output) => output.status.success(),
-            Err(e) => {
-                let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"processor.rs:40\",\"message\":\"FFmpeg check failed\",\"data\":{{\"error\":\"{}\",\"error_kind\":\"{:?}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), e, e.kind()).as_bytes());
-                false
-            }
-        };
-        if ffmpeg_available {
-            let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"processor.rs:40\",\"message\":\"FFmpeg available\",\"data\":{{\"available\":true}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()).as_bytes());
+    match ffmpeg_check {
+        Ok(output) if output.status.success() => {
+            // FFmpeg is available, continue
+        }
+        Ok(_) | Err(_) => {
+            // FFmpeg not found or not working
+            anyhow::bail!(
+                "FFmpeg is not installed or not in PATH. Please install FFmpeg:\n\
+                macOS: brew install ffmpeg\n\
+                Linux: sudo apt-get install ffmpeg (or equivalent)\n\
+                Windows: Download from https://ffmpeg.org/download.html\n\
+                After installation, verify with: ffmpeg -version"
+            );
         }
     }
-    // #endregion
     
     // Build FFmpeg command
     let mut cmd = Command::new("ffmpeg");
@@ -122,26 +123,16 @@ pub fn create_timelapse(
     // #endregion
     
     // Execute FFmpeg
-    let output = cmd.output();
+    let output = cmd.output()
+        .context("Failed to execute FFmpeg. Make sure FFmpeg is installed and in your PATH.")?;
     
     // #region agent log
-    match &output {
-        Ok(out) => {
-            if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                let stderr_str = String::from_utf8_lossy(&out.stderr);
-                let stdout_str = String::from_utf8_lossy(&out.stdout);
-                let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"processor.rs:73\",\"message\":\"FFmpeg execution result\",\"data\":{{\"success\":{},\"exit_code\":{:?},\"stderr_preview\":\"{}\",\"stdout_preview\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), out.status.success(), out.status.code(), stderr_str.lines().take(5).collect::<Vec<_>>().join("\\n"), stdout_str.lines().take(3).collect::<Vec<_>>().join("\\n")).as_bytes());
-            }
-        },
-        Err(e) => {
-            if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"processor.rs:73\",\"message\":\"FFmpeg execution failed\",\"data\":{{\"error\":\"{}\",\"error_kind\":\"{:?}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"A\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), e, e.kind()).as_bytes());
-            }
-        }
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+        let stderr_str = String::from_utf8_lossy(&output.stderr);
+        let stdout_str = String::from_utf8_lossy(&output.stdout);
+        let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"processor.rs:73\",\"message\":\"FFmpeg execution result\",\"data\":{{\"success\":{},\"exit_code\":{:?},\"stderr_preview\":\"{}\",\"stdout_preview\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), output.status.success(), output.status.code(), stderr_str.lines().take(5).collect::<Vec<_>>().join("\\n"), stdout_str.lines().take(3).collect::<Vec<_>>().join("\\n")).as_bytes());
     }
     // #endregion
-    
-    let output = output.context("Failed to execute FFmpeg")?;
     
     // Clean up file list
     let _ = fs::remove_file(&list_file_path);

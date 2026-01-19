@@ -5,7 +5,7 @@ import FileUploader from '@/components/FileUploader';
 import ImagePreview from '@/components/ImagePreview';
 import RotationControls from '@/components/RotationControls';
 import VideoStatus from '@/components/VideoStatus';
-import { createTimelapse, type UploadResponse } from '@/lib/api';
+import { createTimelapse, type UploadResponse, type Rotation } from '@/lib/api';
 
 type Step = 'upload' | 'preview' | 'processing';
 
@@ -13,7 +13,7 @@ export default function Home() {
   const [step, setStep] = useState<Step>('upload');
   const [jobId, setJobId] = useState<string | null>(null);
   const [fileCount, setFileCount] = useState(0);
-  const [rotation, setRotation] = useState(0);
+  const [rotation, setRotation] = useState<Rotation>(0);
   const [fps, setFps] = useState(30);
   const [error, setError] = useState<string | null>(null);
 

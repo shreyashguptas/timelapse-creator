@@ -1,13 +1,15 @@
 'use client';
 
+import { type Rotation } from '@/lib/api';
+
 interface RotationControlsProps {
-  rotation: number;
-  onRotate: (rotation: number) => void;
+  rotation: Rotation;
+  onRotate: (rotation: Rotation) => void;
 }
 
 export default function RotationControls({ rotation, onRotate }: RotationControlsProps) {
   const handleRotate = () => {
-    const newRotation = (rotation + 90) % 360;
+    const newRotation = ((rotation + 90) % 360) as Rotation;
     onRotate(newRotation);
   };
 

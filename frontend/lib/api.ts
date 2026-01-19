@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
 export interface UploadResponse {
   jobId: string;
@@ -6,9 +6,11 @@ export interface UploadResponse {
   filenames: string[];
 }
 
+export type Rotation = 0 | 90 | 180 | 270;
+
 export interface CreateTimelapseRequest {
   jobId: string;
-  rotation: 0 | 90 | 180 | 270;
+  rotation: Rotation;
   fps: number;
 }
 
@@ -23,33 +25,62 @@ export interface JobStatus {
   error?: string;
 }
 
-export async function uploadFiles(files: File[]): Promise<UploadResponse> {
+export async function uploadFiles(
+  files: File[],
+  onProgress?: (percent: number) => void
+): Promise<UploadResponse> {
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files', file);
   });
 
-  try {
-    const response = await fetch(`${API_URL}/api/upload`, {
-      method: 'POST',
-      body: formData,
-    });
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Upload failed:', response.status, errorText);
-      throw new Error(`Upload failed: ${response.statusText}`);
-    }
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        onProgress(percent);
+      }
+    };
 
-    const data = await response.json();
-    console.log('Upload response:', data);
-    return data;
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error(`Cannot connect to backend at ${API_URL}. Make sure the backend is running.`);
-    }
-    throw error;
-  }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          console.log('Upload response:', data);
+          resolve(data);
+        } catch {
+          reject(new Error(`Invalid JSON response from server: ${xhr.responseText.substring(0, 500)}`));
+        }
+      } else {
+        console.error('Upload failed:', xhr.status, xhr.responseText);
+        // Parse error response for more details
+        let errorDetail = xhr.responseText;
+        try {
+          const errorJson = JSON.parse(xhr.responseText);
+          errorDetail = errorJson.error || errorJson.message || JSON.stringify(errorJson);
+        } catch {
+          // Response is not JSON, use as-is (truncate if too long)
+          errorDetail = xhr.responseText.substring(0, 500);
+        }
+        reject(new Error(`Upload failed (HTTP ${xhr.status}): ${errorDetail || xhr.statusText || 'Unknown error'}`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error(`Cannot connect to backend at ${API_URL}. Make sure the backend is running.`));
+    };
+
+    xhr.ontimeout = () => {
+      reject(new Error('Upload timed out. For large uploads, this may take a while.'));
+    };
+
+    xhr.timeout = 0; // No timeout for large uploads
+
+    xhr.open('POST', `${API_URL}/api/upload`);
+    xhr.send(formData);
+  });
 }
 
 export function getPreviewUrl(jobId: string, index: number): string {

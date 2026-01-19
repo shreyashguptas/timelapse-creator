@@ -11,6 +11,7 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [fileCount, setFileCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,9 +36,15 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
         throw new Error('No valid image files selected. Please select PNG, JPEG, or WebP files.');
       }
 
-      // Upload files
-      const response = await uploadFiles(imageFiles);
-      setUploadProgress(100);
+      setFileCount(imageFiles.length);
+      console.log(`Starting upload of ${imageFiles.length} files`);
+
+      // Upload files with progress tracking
+      const response = await uploadFiles(imageFiles, (percent) => {
+        setUploadProgress(percent);
+      });
+
+      console.log('Upload completed successfully:', response);
       
       // Validate response has required fields
       if (!response.jobId || !response.fileCount) {
@@ -80,7 +87,13 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
           {isUploading ? (
             <>
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-              <p className="text-sm text-gray-600">Uploading... {uploadProgress}%</p>
+              <p className="text-sm text-gray-600">Uploading {fileCount} files... {uploadProgress}%</p>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
             </>
           ) : (
             <>
@@ -110,7 +123,8 @@ export default function FileUploader({ onUploadComplete }: FileUploaderProps) {
 
       {error && (
         <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-800">{error}</p>
+          <p className="text-sm font-semibold text-red-800 mb-1">Upload Error</p>
+          <p className="text-sm text-red-700 whitespace-pre-wrap break-words font-mono">{error}</p>
         </div>
       )}
     </div>

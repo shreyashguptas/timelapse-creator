@@ -1,4 +1,5 @@
 use actix_web::{web, App, HttpServer};
+use actix_multipart::form::MultipartFormConfig;
 use actix_cors::Cors;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
@@ -28,16 +29,26 @@ async fn main() -> std::io::Result<()> {
     
     HttpServer::new(move || {
         let job_store = web::Data::new(job_store.clone());
-        
+
         let cors = Cors::default()
             .allow_any_origin()
             .allow_any_method()
             .allow_any_header()
             .max_age(3600);
-        
+
+        // Configure payload limits (10GB total request size)
+        let payload_config = web::PayloadConfig::new(10 * 1024 * 1024 * 1024);
+
+        // Configure multipart limits
+        let multipart_config = MultipartFormConfig::default()
+            .total_limit(10 * 1024 * 1024 * 1024)  // 10GB total
+            .memory_limit(50 * 1024 * 1024);        // 50MB memory buffer
+
         App::new()
             .wrap(cors)
             .app_data(job_store.clone())
+            .app_data(payload_config)
+            .app_data(multipart_config)
             .service(
                 web::scope("/api")
                     .route("/upload", web::post().to(upload_files))

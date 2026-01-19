@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getPreviewUrl } from '@/lib/api';
+import { getPreviewUrl, type Rotation } from '@/lib/api';
 
 interface ImagePreviewProps {
   jobId: string;
   fileCount: number;
-  rotation: number;
+  rotation: Rotation;
 }
 
 export default function ImagePreview({ jobId, fileCount, rotation }: ImagePreviewProps) {

@@ -1,4 +1,4 @@
-FROM rust:1.75 as builder
+FROM rust:1.83 as builder
 
 WORKDIR /app
 
@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Cargo files
-COPY backend/Cargo.toml backend/Cargo.lock* ./
-COPY backend/src ./src
+COPY Cargo.toml Cargo.lock* ./
+COPY src ./src
 
 # Build the application
 RUN cargo build --release
@@ -18,10 +18,11 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Install FFmpeg runtime
+# Install FFmpeg runtime and curl for healthcheck
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the binary from builder

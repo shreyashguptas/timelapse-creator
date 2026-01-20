@@ -15,6 +15,7 @@ export default function Home() {
   const [fileCount, setFileCount] = useState(0);
   const [rotation, setRotation] = useState<Rotation>(0);
   const [fps, setFps] = useState(30);
+  const [fpsInput, setFpsInput] = useState('30');
   const [error, setError] = useState<string | null>(null);
 
   const handleUploadComplete = (response: UploadResponse) => {
@@ -87,8 +88,14 @@ export default function Home() {
                     type="number"
                     min="1"
                     max="60"
-                    value={fps}
-                    onChange={(e) => setFps(parseInt(e.target.value) || 30)}
+                    value={fpsInput}
+                    onChange={(e) => setFpsInput(e.target.value)}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      const clamped = isNaN(val) ? 30 : Math.max(1, Math.min(60, val));
+                      setFps(clamped);
+                      setFpsInput(String(clamped));
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -128,6 +135,7 @@ export default function Home() {
                 setFileCount(0);
                 setRotation(0);
                 setFps(30);
+                setFpsInput('30');
               }}
               className="w-full px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >

@@ -4,6 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
 use crate::models::{JobStatusType, ProcessingProgress};
@@ -132,46 +133,57 @@ pub async fn create_timelapse_async(
     // Try to use bundled ffmpeg sidecar first, fall back to system ffmpeg
     let shell = app.shell();
 
-    // Try sidecar first (bundled ffmpeg)
-    let sidecar_result = shell.sidecar("ffmpeg");
-
-    let output = match sidecar_result {
-        Ok(sidecar) => {
-            // Use bundled ffmpeg
-            sidecar
-                .args(&args)
-                .output()
-                .await
-                .context("Failed to run bundled FFmpeg")?
+    // Try sidecar first (bundled ffmpeg), then fall back to system ffmpeg
+    let spawn_result = if let Ok(sidecar) = shell.sidecar("ffmpeg") {
+        match sidecar.args(&args).spawn() {
+            Ok(result) => Some(result),
+            Err(_) => None,
         }
-        Err(_) => {
-            // Fall back to system ffmpeg
-            shell
-                .command("ffmpeg")
-                .args(&args)
-                .output()
-                .await
-                .context("FFmpeg not found. Please install FFmpeg or ensure the bundled binary is available.")?
-        }
+    } else {
+        None
     };
 
-    // Parse progress from stderr
-    let stderr_str = String::from_utf8_lossy(&output.stderr);
-    for line in stderr_str.lines() {
-        if let Some(frame) = parse_frame_from_line(line) {
-            update_job_progress(&job_store, &job_id, "encoding", frame, total_frames);
+    // Fall back to system ffmpeg if sidecar didn't work
+    let (mut rx, _child) = match spawn_result {
+        Some(result) => result,
+        None => shell
+            .command("ffmpeg")
+            .args(&args)
+            .spawn()
+            .context("FFmpeg not found. Please install FFmpeg.")?,
+    };
+
+    // Stream FFmpeg output and update progress in real-time
+    let mut success = false;
+    let mut error_output = String::new();
+
+    while let Some(event) = rx.recv().await {
+        match event {
+            CommandEvent::Stderr(line) => {
+                let line_str = String::from_utf8_lossy(&line);
+                error_output.push_str(&line_str);
+
+                // Parse and update progress in real-time
+                if let Some(frame) = parse_frame_from_line(&line_str) {
+                    update_job_progress(&job_store, &job_id, "encoding", frame, total_frames);
+                }
+            }
+            CommandEvent::Terminated(payload) => {
+                success = payload.code == Some(0);
+                break;
+            }
+            _ => {}
         }
     }
 
     // Clean up file list
     let _ = fs::remove_file(&list_file_path);
 
-    if !output.status.success() {
-        let error_msg = stderr_str.to_string();
-        let display_error = if error_msg.len() > 500 {
-            format!("{}...", &error_msg[..500])
+    if !success {
+        let display_error = if error_output.len() > 500 {
+            format!("{}...", &error_output[..500])
         } else {
-            error_msg
+            error_output
         };
         anyhow::bail!("FFmpeg failed: {}", display_error);
     }

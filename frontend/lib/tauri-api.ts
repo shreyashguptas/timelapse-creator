@@ -42,14 +42,14 @@ export async function selectImages(): Promise<string[]> {
 
 export async function uploadImages(paths: string[]): Promise<UploadResponse> {
   const result = await invoke<{
-    job_id: string;
-    file_count: number;
+    jobId: string;
+    fileCount: number;
     filenames: string[];
   }>('upload_images', { paths });
 
   return {
-    jobId: result.job_id,
-    fileCount: result.file_count,
+    jobId: result.jobId,
+    fileCount: result.fileCount,
     filenames: result.filenames,
   };
 }
@@ -64,12 +64,12 @@ export async function createTimelapse(
   rotation: Rotation
 ): Promise<CreateTimelapseResponse> {
   const result = await invoke<{
-    job_id: string;
+    jobId: string;
     status: string;
   }>('create_timelapse', { jobId, fps, rotation });
 
   return {
-    jobId: result.job_id,
+    jobId: result.jobId,
     status: result.status as 'pending' | 'processing',
   };
 }
@@ -79,8 +79,8 @@ export async function getJobStatus(jobId: string): Promise<JobStatus> {
     status: string;
     progress?: number;
     stage?: string;
-    current_frame?: number;
-    total_frames?: number;
+    currentFrame?: number;
+    totalFrames?: number;
     error?: string;
   }>('get_job_status', { jobId });
 
@@ -88,8 +88,8 @@ export async function getJobStatus(jobId: string): Promise<JobStatus> {
     status: result.status as JobStatus['status'],
     progress: result.progress,
     stage: result.stage as JobStatus['stage'],
-    currentFrame: result.current_frame,
-    totalFrames: result.total_frames,
+    currentFrame: result.currentFrame,
+    totalFrames: result.totalFrames,
     error: result.error,
   };
 }

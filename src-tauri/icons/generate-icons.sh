@@ -5,7 +5,7 @@
 set -e
 cd "$(dirname "$0")"
 
-SOURCE="128x128@2x.png"  # 256x256 source image
+SOURCE="icon-512.png"  # 512x512 source image
 
 if [ ! -f "$SOURCE" ]; then
     echo "Error: Source image $SOURCE not found"

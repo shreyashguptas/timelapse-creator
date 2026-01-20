@@ -1,16 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import FileUploader from '@/components/FileUploader';
 import ImagePreview from '@/components/ImagePreview';
 import RotationControls from '@/components/RotationControls';
-import VideoStatus from '@/components/VideoStatus';
-import { createTimelapse, type UploadResponse, type Rotation } from '@/lib/api';
-
-type Step = 'upload' | 'preview' | 'processing';
+import VideoPlayer from '@/components/VideoPlayer';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import { createTimelapse, getJobStatus, type UploadResponse, type Rotation } from '@/lib/api';
 
 export default function Home() {
-  const [step, setStep] = useState<Step>('upload');
   const [jobId, setJobId] = useState<string | null>(null);
   const [fileCount, setFileCount] = useState(0);
   const [rotation, setRotation] = useState<Rotation>(0);
@@ -18,12 +16,47 @@ export default function Home() {
   const [fpsInput, setFpsInput] = useState('30');
   const [error, setError] = useState<string | null>(null);
 
+  const [isUploaded, setIsUploaded] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  useEffect(() => {
+    if (!jobId || !isProcessing) return;
+
+    const pollStatus = async () => {
+      try {
+        const status = await getJobStatus(jobId);
+        setProgress(status.progress || 0);
+
+        if (status.status === 'completed') {
+          setIsProcessing(false);
+          setIsCompleted(true);
+        } else if (status.status === 'failed') {
+          setError(status.error || 'Video creation failed');
+          setIsProcessing(false);
+        }
+      } catch (err) {
+        console.error('Failed to poll status:', err);
+        setError('Failed to check processing status');
+        setIsProcessing(false);
+      }
+    };
+
+    pollStatus();
+    const interval = setInterval(pollStatus, 2000);
+
+    return () => clearInterval(interval);
+  }, [jobId, isProcessing]);
+
   const handleUploadComplete = (response: UploadResponse) => {
     console.log('Upload complete:', response);
     if (response.jobId && response.fileCount > 0) {
       setJobId(response.jobId);
       setFileCount(response.fileCount);
-      setStep('preview');
+      setIsUploaded(true);
+      setError(null);
     } else {
       setError('Invalid upload response. Please try again.');
     }
@@ -33,7 +66,8 @@ export default function Home() {
     if (!jobId) return;
 
     setError(null);
-    setStep('processing');
+    setIsProcessing(true);
+    setProgress(0);
 
     try {
       await createTimelapse({
@@ -43,107 +77,181 @@ export default function Home() {
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create timelapse');
-      setStep('preview');
+      setIsProcessing(false);
     }
   };
 
+  const handleAdjust = () => {
+    setIsCompleted(false);
+    setProgress(0);
+  };
+
+  const handleReset = () => {
+    setJobId(null);
+    setFileCount(0);
+    setRotation(0);
+    setFps(30);
+    setFpsInput('30');
+    setError(null);
+    setIsUploaded(false);
+    setIsProcessing(false);
+    setIsCompleted(false);
+    setProgress(0);
+  };
+
+  const handleResetConfirm = () => {
+    handleReset();
+    setShowResetConfirm(false);
+  };
+
+  const handleResetCancel = () => {
+    setShowResetConfirm(false);
+  };
+
   return (
-    <main className="min-h-screen py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-2">
-          Timelapse Creator
-        </h1>
-        <p className="text-center text-gray-600 mb-8">
-          Upload your image frames and create a high-quality timelapse video
-        </p>
+    <main className="min-h-screen py-8 px-4 sm:py-12 md:py-16 lg:py-24">
+      <div className="max-w-sm sm:max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto">
+        {/* Header */}
+        <header className="text-center mb-8 sm:mb-12 md:mb-16">
+          <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-3 sm:mb-4">
+            Create Beautiful
+            <br />
+            Timelapses
+          </h1>
+          <p className="text-charcoal-muted text-sm sm:text-base md:text-lg">
+            Transform your images into stunning high-quality videos
+          </p>
+        </header>
 
-        {step === 'upload' && (
-          <div className="space-y-6">
-            <FileUploader onUploadComplete={handleUploadComplete} />
-            {error && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="space-y-6 sm:space-y-8">
+          {/* Upload Section */}
+          {!isUploaded && (
+            <section>
+              <FileUploader onUploadComplete={handleUploadComplete} />
+            </section>
+          )}
 
-        {step === 'preview' && jobId && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-2xl font-semibold mb-4">Preview & Settings</h2>
-              
-              <div className="space-y-6">
-                <ImagePreview jobId={jobId} fileCount={fileCount} rotation={rotation} />
-                
-                <div className="border-t pt-6">
+          {/* Upload Error */}
+          {error && !isUploaded && (
+            <div className="p-3 sm:p-4 bg-error/5 border border-error/20 rounded-xl">
+              <p className="text-xs sm:text-sm text-error">{error}</p>
+            </div>
+          )}
+
+          {/* Settings Section - visible after upload, before completion */}
+          {isUploaded && !isCompleted && jobId && (
+            <section className="bg-cream-light border border-cream-dark rounded-2xl p-4 sm:p-6 md:p-8">
+              <div className="space-y-6 sm:space-y-8">
+                {/* Preview Section */}
+                <div>
+                  <h2 className="font-serif text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Preview</h2>
+                  <ImagePreview jobId={jobId} fileCount={fileCount} rotation={rotation} />
+                </div>
+
+                {/* Rotation Section */}
+                <div className="pt-4 sm:pt-6 border-t border-cream-dark">
+                  <h3 className="text-xs sm:text-sm font-medium text-charcoal-muted uppercase tracking-wide mb-3 sm:mb-4">
+                    Rotation
+                  </h3>
                   <RotationControls rotation={rotation} onRotate={setRotation} />
                 </div>
 
-                <div className="border-t pt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Frame Rate (FPS)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="60"
-                    value={fpsInput}
-                    onChange={(e) => setFpsInput(e.target.value)}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value);
-                      const clamped = isNaN(val) ? 30 : Math.max(1, Math.min(60, val));
-                      setFps(clamped);
-                      setFpsInput(String(clamped));
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                {/* FPS Section */}
+                <div className="pt-4 sm:pt-6 border-t border-cream-dark">
+                  <h3 className="text-xs sm:text-sm font-medium text-charcoal-muted uppercase tracking-wide mb-3 sm:mb-4">
+                    Frame Rate
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={fpsInput}
+                        onChange={(e) => setFpsInput(e.target.value)}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value);
+                          const clamped = isNaN(val) ? 30 : Math.max(1, Math.min(60, val));
+                          setFps(clamped);
+                          setFpsInput(String(clamped));
+                        }}
+                        disabled={isProcessing}
+                        className="w-full sm:w-24 px-4 py-2.5 bg-cream border border-cream-dark rounded-full text-center focus:outline-none focus:ring-2 focus:ring-charcoal/20 focus:border-charcoal transition-all disabled:opacity-50"
+                      />
+                      <span className="text-charcoal-muted text-sm">FPS (1-60)</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-charcoal-muted/80">
+                      Increasing the frame rate means the timelapse will be faster, decreasing means slower.
+                    </p>
+                  </div>
                 </div>
 
+                {/* Error Display */}
                 {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-800">{error}</p>
+                  <div className="p-3 sm:p-4 bg-error/5 border border-error/20 rounded-xl">
+                    <p className="text-xs sm:text-sm text-error">{error}</p>
                   </div>
                 )}
 
-                <div className="flex space-x-4">
-                  <button
-                    onClick={() => setStep('upload')}
-                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleCreateTimelapse}
-                    className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                  >
-                    Create Timelapse
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                {/* Processing Progress */}
+                {isProcessing && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-charcoal-muted">Processing...</span>
+                      <span className="font-medium">{progress}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-cream-dark rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-charcoal rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
-        {step === 'processing' && jobId && (
-          <div className="space-y-6">
-            <VideoStatus jobId={jobId} />
-            <button
-              onClick={() => {
-                setStep('upload');
-                setJobId(null);
-                setFileCount(0);
-                setRotation(0);
-                setFps(30);
-                setFpsInput('30');
-              }}
-              className="w-full px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Create Another Timelapse
-            </button>
-          </div>
-        )}
+                {/* Actions */}
+                {!isProcessing && (
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2 sm:pt-4">
+                    <button
+                      onClick={() => setShowResetConfirm(true)}
+                      className="px-4 sm:px-6 py-2.5 sm:py-3 border border-charcoal/20 rounded-full hover:bg-cream-dark transition-colors text-sm sm:text-base order-2 sm:order-1"
+                    >
+                      Start Over
+                    </button>
+                    <button
+                      onClick={handleCreateTimelapse}
+                      className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-charcoal text-cream rounded-full hover:bg-charcoal-light transition-colors font-medium text-sm sm:text-base order-1 sm:order-2"
+                    >
+                      Generate Timelapse
+                    </button>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Video Player Section - visible after completion */}
+          {isCompleted && jobId && (
+            <section>
+              <VideoPlayer
+                jobId={jobId}
+                onAdjust={handleAdjust}
+                onReset={() => setShowResetConfirm(true)}
+              />
+            </section>
+          )}
+        </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showResetConfirm}
+        title="Start Over?"
+        message="Your uploaded images will be cleared. Are you sure you want to start over?"
+        confirmLabel="Yes, Start Over"
+        cancelLabel="Cancel"
+        onConfirm={handleResetConfirm}
+        onCancel={handleResetCancel}
+      />
     </main>
   );
 }

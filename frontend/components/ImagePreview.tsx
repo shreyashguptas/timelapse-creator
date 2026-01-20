@@ -19,11 +19,10 @@ export default function ImagePreview({ jobId, fileCount, rotation }: ImagePrevie
 
     const middleIndex = Math.floor(fileCount / 2);
     const url = getPreviewUrl(jobId, middleIndex);
-    
+
     setLoading(true);
     setError(null);
-    
-    // Add cache busting
+
     const img = new Image();
     img.onload = () => {
       setImageUrl(url);
@@ -38,27 +37,27 @@ export default function ImagePreview({ jobId, fileCount, rotation }: ImagePrevie
 
   if (!jobId || fileCount === 0) {
     return (
-      <div className="w-full max-w-2xl mx-auto aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-        <p className="text-gray-400">No preview available</p>
+      <div className="w-full aspect-video bg-cream rounded-xl border border-cream-dark flex items-center justify-center">
+        <p className="text-charcoal-muted text-sm sm:text-base">No preview available</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+    <div className="w-full">
+      <div className="relative aspect-video bg-cream rounded-xl border border-cream-dark overflow-hidden flex items-center justify-center">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-charcoal/20 border-t-charcoal animate-spin" />
           </div>
         )}
-        
+
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-red-600">{error}</p>
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <p className="text-error text-sm sm:text-base text-center">{error}</p>
           </div>
         )}
-        
+
         {imageUrl && !loading && (
           <img
             src={imageUrl}
@@ -71,9 +70,9 @@ export default function ImagePreview({ jobId, fileCount, rotation }: ImagePrevie
           />
         )}
       </div>
-      
-      <p className="mt-2 text-sm text-center text-gray-600">
-        Preview: Frame {Math.floor(fileCount / 2) + 1} of {fileCount}
+
+      <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-center text-charcoal-muted">
+        Frame {Math.floor(fileCount / 2) + 1} of {fileCount}
       </p>
     </div>
   );

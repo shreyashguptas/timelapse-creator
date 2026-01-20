@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Film strip icon representing timelapse -->
+  <rect x="4" y="6" width="24" height="20" rx="2" fill="#1A1A1A"/>
+  <!-- Film holes left -->
+  <rect x="6" y="9" width="3" height="2" rx="0.5" fill="#F5F0E6"/>
+  <rect x="6" y="14" width="3" height="2" rx="0.5" fill="#F5F0E6"/>
+  <rect x="6" y="19" width="3" height="2" rx="0.5" fill="#F5F0E6"/>
+  <!-- Film holes right -->
+  <rect x="23" y="9" width="3" height="2" rx="0.5" fill="#F5F0E6"/>
+  <rect x="23" y="14" width="3" height="2" rx="0.5" fill="#F5F0E6"/>
+  <rect x="23" y="19" width="3" height="2" rx="0.5" fill="#F5F0E6"/>
+  <!-- Play button in center -->
+  <path d="M14 11L14 21L22 16L14 11Z" fill="#F5F0E6"/>
+</svg>

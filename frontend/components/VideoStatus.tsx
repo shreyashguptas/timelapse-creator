@@ -28,10 +28,7 @@ export default function VideoStatus({ jobId }: VideoStatusProps) {
       }
     };
 
-    // Poll immediately
     pollStatus();
-
-    // Then poll every 2 seconds
     const interval = setInterval(pollStatus, 2000);
 
     return () => clearInterval(interval);
@@ -39,79 +36,112 @@ export default function VideoStatus({ jobId }: VideoStatusProps) {
 
   if (!status) {
     return (
-      <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow">
-        <div className="flex items-center space-x-3">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-          <p className="text-gray-600">Checking status...</p>
+      <div className="w-full bg-cream-light border border-cream-dark rounded-2xl p-8">
+        <div className="flex items-center justify-center gap-3">
+          <div className="w-5 h-5 rounded-full border-2 border-charcoal/20 border-t-charcoal animate-spin" />
+          <p className="text-charcoal-muted">Checking status...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6 bg-white rounded-lg shadow">
-      <div className="space-y-4">
+    <div className="w-full bg-cream-light border border-cream-dark rounded-2xl p-8">
+      <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Video Status</h3>
+          <h3 className="font-serif text-xl font-bold">Video Status</h3>
           <span
             className={`px-3 py-1 rounded-full text-sm font-medium ${
               status.status === 'completed'
-                ? 'bg-green-100 text-green-800'
+                ? 'bg-success/10 text-success'
                 : status.status === 'failed'
-                ? 'bg-red-100 text-red-800'
+                ? 'bg-error/10 text-error'
                 : status.status === 'processing'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-gray-100 text-gray-800'
+                ? 'bg-charcoal/10 text-charcoal'
+                : 'bg-charcoal-muted/10 text-charcoal-muted'
             }`}
           >
             {status.status}
           </span>
         </div>
 
+        {/* Processing State */}
         {status.status === 'processing' && (
-          <div className="space-y-2">
-            <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="space-y-3">
+            <div className="w-full h-2 bg-cream-dark rounded-full overflow-hidden">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="h-full bg-charcoal rounded-full transition-all duration-300"
                 style={{ width: `${status.progress || 0}%` }}
-              ></div>
+              />
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-charcoal-muted text-center">
               Processing... {status.progress || 0}%
             </p>
           </div>
         )}
 
+        {/* Completed State */}
         {status.status === 'completed' && (
           <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-800 font-medium mb-2">
-                Video created successfully!
+            <div className="p-6 bg-success/5 border border-success/20 rounded-xl text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-success/10 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-success"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <p className="text-success font-medium mb-4">
+                Video created successfully
               </p>
               <a
                 href={getDownloadUrl(jobId)}
                 download
-                className="inline-block px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-charcoal text-cream rounded-full hover:bg-charcoal-light transition-colors font-medium"
               >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
                 Download Video
               </a>
             </div>
           </div>
         )}
 
+        {/* Failed State */}
         {status.status === 'failed' && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 font-medium">Error</p>
-            <p className="text-red-600 text-sm mt-1">
+          <div className="p-6 bg-error/5 border border-error/20 rounded-xl">
+            <p className="text-error font-medium mb-1">Error</p>
+            <p className="text-error/80 text-sm">
               {status.error || 'Video creation failed'}
             </p>
           </div>
         )}
 
+        {/* Pending State */}
         {status.status === 'pending' && (
-          <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
-            <p className="text-gray-600">Waiting to start processing...</p>
+          <div className="flex items-center justify-center gap-3 py-4">
+            <div className="w-4 h-4 rounded-full border-2 border-charcoal/20 border-t-charcoal animate-spin" />
+            <p className="text-charcoal-muted">Waiting to start processing...</p>
           </div>
         )}
       </div>

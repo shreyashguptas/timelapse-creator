@@ -40,6 +40,7 @@ export default function Home() {
         if (status.status === 'completed') {
           setIsProcessing(false);
           setIsCompleted(true);
+          setGenerationTimestamp(Date.now());
         } else if (status.status === 'failed') {
           setError(status.error || 'Video creation failed');
           setIsProcessing(false);
@@ -75,7 +76,6 @@ export default function Home() {
     setError(null);
     setIsProcessing(true);
     setProgress(0);
-    setGenerationTimestamp(Date.now());
 
     try {
       await createTimelapse({

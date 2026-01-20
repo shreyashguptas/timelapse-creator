@@ -26,6 +26,7 @@ export default function VideoPlayer({ jobId, cacheBuster, onAdjust, onReset }: V
             src={videoUrl}
             controls
             playsInline
+            preload="metadata"
             className="w-full h-full object-contain"
           >
             Your browser does not support the video tag.

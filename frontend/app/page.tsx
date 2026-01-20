@@ -24,7 +24,7 @@ export default function Home() {
   const [currentFrame, setCurrentFrame] = useState<number | null>(null);
   const [totalFrames, setTotalFrames] = useState<number | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [generationTimestamp, setGenerationTimestamp] = useState<number | null>(null);
+  const [generationCount, setGenerationCount] = useState(0);
 
   useEffect(() => {
     if (!jobId || !isProcessing) return;
@@ -40,7 +40,7 @@ export default function Home() {
         if (status.status === 'completed') {
           setIsProcessing(false);
           setIsCompleted(true);
-          setGenerationTimestamp(Date.now());
+          setGenerationCount(c => c + 1);
         } else if (status.status === 'failed') {
           setError(status.error || 'Video creation failed');
           setIsProcessing(false);
@@ -256,7 +256,7 @@ export default function Home() {
             <section>
               <VideoPlayer
                 jobId={jobId}
-                cacheBuster={generationTimestamp}
+                cacheBuster={generationCount}
                 onAdjust={handleAdjust}
                 onReset={() => setShowResetConfirm(true)}
               />

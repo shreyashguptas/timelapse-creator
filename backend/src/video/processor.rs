@@ -183,6 +183,15 @@ pub async fn create_timelapse_async(
     // Update to finalizing stage briefly
     update_job_progress(&job_store, job_id, "finalizing", total_frames, total_frames);
 
+    // Ensure output file is fully synced to disk before signaling completion
+    // This prevents race conditions where the file appears complete but data
+    // is still in the kernel write cache
+    let file = std::fs::File::open(&output_path)
+        .context("Failed to open output file for sync")?;
+    file.sync_all()
+        .context("Failed to sync output file to disk")?;
+    drop(file);
+
     Ok(())
 }
 

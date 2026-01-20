@@ -22,6 +22,7 @@ export default function VideoPlayer({ jobId, cacheBuster, onAdjust, onReset }: V
 
         <div className="relative aspect-video bg-charcoal rounded-xl overflow-hidden">
           <video
+            key={videoUrl}
             src={videoUrl}
             controls
             playsInline

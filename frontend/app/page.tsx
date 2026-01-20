@@ -6,7 +6,7 @@ import ImagePreview from '@/components/ImagePreview';
 import RotationControls from '@/components/RotationControls';
 import VideoPlayer from '@/components/VideoPlayer';
 import ConfirmationModal from '@/components/ConfirmationModal';
-import { createTimelapse, getJobStatus, type UploadResponse, type Rotation } from '@/lib/api';
+import { createTimelapse, getJobStatus, type UploadResponse, type Rotation } from '@/lib/tauri-api';
 
 export default function Home() {
   const [jobId, setJobId] = useState<string | null>(null);
@@ -78,11 +78,7 @@ export default function Home() {
     setProgress(0);
 
     try {
-      await createTimelapse({
-        jobId,
-        rotation,
-        fps,
-      });
+      await createTimelapse(jobId, fps, rotation);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create timelapse');
       setIsProcessing(false);

@@ -17,5 +17,6 @@ pub async fn download_video(
     Ok(HttpResponse::Ok()
         .content_type("video/mp4")
         .append_header(("Content-Disposition", format!("inline; filename=\"timelapse_{}.mp4\"", job_id)))
+        .append_header(("Cache-Control", "no-cache, no-store, must-revalidate"))
         .body(file_data))
 }

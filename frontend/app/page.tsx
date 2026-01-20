@@ -24,6 +24,7 @@ export default function Home() {
   const [currentFrame, setCurrentFrame] = useState<number | null>(null);
   const [totalFrames, setTotalFrames] = useState<number | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [generationTimestamp, setGenerationTimestamp] = useState<number | null>(null);
 
   useEffect(() => {
     if (!jobId || !isProcessing) return;
@@ -74,6 +75,7 @@ export default function Home() {
     setError(null);
     setIsProcessing(true);
     setProgress(0);
+    setGenerationTimestamp(Date.now());
 
     try {
       await createTimelapse({
@@ -254,6 +256,7 @@ export default function Home() {
             <section>
               <VideoPlayer
                 jobId={jobId}
+                cacheBuster={generationTimestamp}
                 onAdjust={handleAdjust}
                 onReset={() => setShowResetConfirm(true)}
               />

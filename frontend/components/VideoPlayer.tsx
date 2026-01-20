@@ -4,12 +4,13 @@ import { getDownloadUrl } from '@/lib/api';
 
 interface VideoPlayerProps {
   jobId: string;
+  cacheBuster?: number | null;
   onAdjust: () => void;
   onReset: () => void;
 }
 
-export default function VideoPlayer({ jobId, onAdjust, onReset }: VideoPlayerProps) {
-  const videoUrl = getDownloadUrl(jobId);
+export default function VideoPlayer({ jobId, cacheBuster, onAdjust, onReset }: VideoPlayerProps) {
+  const videoUrl = getDownloadUrl(jobId, cacheBuster ?? undefined);
 
   return (
     <div className="w-full bg-cream-light border border-cream-dark rounded-2xl p-4 sm:p-6 md:p-8">

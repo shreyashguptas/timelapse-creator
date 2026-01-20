@@ -118,6 +118,7 @@ export async function getJobStatus(jobId: string): Promise<JobStatus> {
   return response.json();
 }
 
-export function getDownloadUrl(jobId: string): string {
-  return `${API_URL}/api/download/${jobId}`;
+export function getDownloadUrl(jobId: string, cacheBuster?: number): string {
+  const url = `${API_URL}/api/download/${jobId}`;
+  return cacheBuster ? `${url}?t=${cacheBuster}` : url;
 }

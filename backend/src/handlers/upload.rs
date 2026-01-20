@@ -10,7 +10,7 @@ use crate::storage::local::{ensure_job_directory, get_frames_directory};
 pub async fn upload_files(mut payload: Multipart) -> Result<HttpResponse, Error> {
     let job_id = Uuid::new_v4().to_string();
     ensure_job_directory(&job_id)
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     let frames_dir = get_frames_directory(&job_id);
     let mut file_count = 0;
@@ -40,8 +40,8 @@ pub async fn upload_files(mut payload: Multipart) -> Result<HttpResponse, Error>
             let filepath_clone = filepath.clone();
             let mut file = web::block(move || File::create(&filepath_clone))
                 .await
-                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
-                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+                .map_err(actix_web::error::ErrorInternalServerError)?
+                .map_err(actix_web::error::ErrorInternalServerError)?;
             
             // Write file in chunks
             while let Ok(Some(chunk)) = field.try_next().await {
@@ -50,10 +50,10 @@ pub async fn upload_files(mut payload: Multipart) -> Result<HttpResponse, Error>
                     Ok::<_, std::io::Error>(file)
                 })
                 .await
-                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?
-                .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+                .map_err(actix_web::error::ErrorInternalServerError)?
+                .map_err(actix_web::error::ErrorInternalServerError)?;
             }
-            
+
             file_count += 1;
             filenames.push(sanitized_filename);
         }

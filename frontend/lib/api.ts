@@ -22,6 +22,9 @@ export interface CreateTimelapseResponse {
 export interface JobStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress?: number;
+  stage?: 'preparing' | 'encoding' | 'finalizing' | 'complete';
+  currentFrame?: number;
+  totalFrames?: number;
   error?: string;
 }
 

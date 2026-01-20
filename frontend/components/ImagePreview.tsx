@@ -10,30 +10,48 @@ interface ImagePreviewProps {
 }
 
 export default function ImagePreview({ jobId, fileCount, rotation }: ImagePreviewProps) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadedData, setLoadedData] = useState<{ url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Compute the expected URL (null if no valid job)
+  const expectedUrl = jobId && fileCount > 0
+    ? getPreviewUrl(jobId, Math.floor(fileCount / 2))
+    : null;
+
+  // Derive loading state from comparison
+  const loading = expectedUrl !== null && (loadedData === null || loadedData.url !== expectedUrl) && error === null;
+  const imageUrl = loadedData?.url ?? null;
+
   useEffect(() => {
-    if (!jobId || fileCount === 0) return;
+    if (!expectedUrl) {
+      return;
+    }
 
-    const middleIndex = Math.floor(fileCount / 2);
-    const url = getPreviewUrl(jobId, middleIndex);
+    // Check if already loaded
+    if (loadedData?.url === expectedUrl) {
+      return;
+    }
 
-    setLoading(true);
-    setError(null);
+    let cancelled = false;
 
     const img = new Image();
     img.onload = () => {
-      setImageUrl(url);
-      setLoading(false);
+      if (!cancelled) {
+        setLoadedData({ url: expectedUrl });
+        setError(null);
+      }
     };
     img.onerror = () => {
-      setError('Failed to load preview image');
-      setLoading(false);
+      if (!cancelled) {
+        setError('Failed to load preview image');
+      }
     };
-    img.src = url;
-  }, [jobId, fileCount]);
+    img.src = expectedUrl;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [expectedUrl, loadedData?.url]);
 
   if (!jobId || fileCount === 0) {
     return (

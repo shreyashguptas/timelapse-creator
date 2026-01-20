@@ -31,20 +31,18 @@ pub async fn get_preview(
     }
     
     let file_data = std::fs::read(&filepath)
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     // Determine content type from extension
     let content_type = if filepath.extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| ext.to_lowercase())
-        .as_ref()
-        .map(|s| s.as_str()) == Some("png") {
+        .as_deref() == Some("png") {
         "image/png"
     } else if filepath.extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| ext.to_lowercase())
-        .as_ref()
-        .map(|s| s.as_str()) == Some("webp") {
+        .as_deref() == Some("webp") {
         "image/webp"
     } else {
         "image/jpeg"

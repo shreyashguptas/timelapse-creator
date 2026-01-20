@@ -20,18 +20,26 @@ pub async fn get_job_status(
         JobStatusType::Failed(err) => ("failed", Some(err.clone())),
         _ => (status.as_str(), None),
     };
-    
-    // Calculate progress if processing
-    let progress = if matches!(status, JobStatusType::Processing) {
-        // Simple progress estimation - could be improved with actual FFmpeg output parsing
-        Some(50) // Placeholder
-    } else {
-        None
+
+    // Extract progress data from status
+    let (progress, stage, current_frame, total_frames) = match &status {
+        JobStatusType::Processing(Some(p)) => (
+            Some(p.percent as u32),
+            Some(p.stage.clone()),
+            Some(p.current_frame),
+            Some(p.total_frames),
+        ),
+        JobStatusType::Processing(None) => (Some(0), Some("preparing".to_string()), None, None),
+        JobStatusType::Completed => (Some(100), Some("complete".to_string()), None, None),
+        _ => (None, None, None, None),
     };
-    
+
     Ok(HttpResponse::Ok().json(JobStatus {
         status: status_str.to_string(),
         progress,
+        stage,
+        current_frame,
+        total_frames,
         error,
     }))
 }

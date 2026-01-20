@@ -20,6 +20,9 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState<string | null>(null);
+  const [currentFrame, setCurrentFrame] = useState<number | null>(null);
+  const [totalFrames, setTotalFrames] = useState<number | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
@@ -29,6 +32,9 @@ export default function Home() {
       try {
         const status = await getJobStatus(jobId);
         setProgress(status.progress || 0);
+        setStage(status.stage || null);
+        setCurrentFrame(status.currentFrame || null);
+        setTotalFrames(status.totalFrames || null);
 
         if (status.status === 'completed') {
           setIsProcessing(false);
@@ -84,6 +90,9 @@ export default function Home() {
   const handleAdjust = () => {
     setIsCompleted(false);
     setProgress(0);
+    setStage(null);
+    setCurrentFrame(null);
+    setTotalFrames(null);
   };
 
   const handleReset = () => {
@@ -97,6 +106,9 @@ export default function Home() {
     setIsProcessing(false);
     setIsCompleted(false);
     setProgress(0);
+    setStage(null);
+    setCurrentFrame(null);
+    setTotalFrames(null);
   };
 
   const handleResetConfirm = () => {
@@ -197,7 +209,14 @@ export default function Home() {
                 {isProcessing && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-charcoal-muted">Processing...</span>
+                      <span className="text-charcoal-muted">
+                        {stage === 'preparing' && 'Preparing frames...'}
+                        {stage === 'encoding' && currentFrame && totalFrames
+                          ? `Encoding frame ${currentFrame} of ${totalFrames}...`
+                          : stage === 'encoding' ? 'Encoding...' : null}
+                        {stage === 'finalizing' && 'Finalizing video...'}
+                        {!stage && 'Processing...'}
+                      </span>
                       <span className="font-medium">{progress}%</span>
                     </div>
                     <div className="w-full h-2 bg-cream-dark rounded-full overflow-hidden">

@@ -12,7 +12,7 @@ pub async fn download_video(
     }
     
     let file_data = std::fs::read(&output_path)
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     
     Ok(HttpResponse::Ok()
         .content_type("video/mp4")

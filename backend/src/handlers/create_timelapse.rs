@@ -3,10 +3,9 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use crate::models::{CreateTimelapseRequest, CreateTimelapseResponse, JobStatusType};
 use crate::storage::local::{get_frames_directory, get_output_path};
-use crate::video::processor::create_timelapse;
+use crate::video::processor::create_timelapse_async;
 
-// In-memory job store (in production, use Redis or database)
-type JobStore = Arc<Mutex<HashMap<String, JobStatusType>>>;
+pub type JobStore = Arc<Mutex<HashMap<String, JobStatusType>>>;
 
 pub async fn create_timelapse_handler(
     req: web::Json<CreateTimelapseRequest>,
@@ -38,56 +37,41 @@ pub async fn create_timelapse_handler(
         })));
     }
     
-    // Update job status to processing
+    // Update job status to processing (with no progress yet)
     {
         let mut store = job_store.lock().unwrap();
-        store.insert(job_id.clone(), JobStatusType::Processing);
+        store.insert(job_id.clone(), JobStatusType::Processing(None));
     }
     
     // Spawn async task to process video
     let job_id_clone = job_id.clone();
-    let job_store_clone = job_store.clone();
-    
+    // Clone the inner Arc (web::Data wraps in another Arc, so get_ref gives us &Arc<...>)
+    let job_store_arc = Arc::clone(job_store.get_ref());
+
     actix_web::rt::spawn(async move {
-        // #region agent log
-        let log_path = std::path::Path::new("/Users/shreyashgupta/Documents/Github/timelapse-creator/.cursor/debug.log");
-        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-            let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"create_timelapse.rs:51\",\"message\":\"spawned async task\",\"data\":{{\"job_id\":\"{}\",\"fps\":{},\"rotation\":{}}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), job_id_clone, fps, rotation).as_bytes());
-        }
-        // #endregion
-        
         let frames_dir = get_frames_directory(&job_id_clone);
         let output_path = get_output_path(&job_id_clone);
-        
-        // #region agent log
-        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-            let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"create_timelapse.rs:55\",\"message\":\"paths before create_timelapse\",\"data\":{{\"frames_dir\":\"{}\",\"output_path\":\"{}\",\"frames_dir_exists\":{},\"output_dir_exists\":{}}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), frames_dir.display(), output_path.display(), frames_dir.exists(), output_path.parent().map(|p| p.exists()).unwrap_or(false)).as_bytes());
-        }
-        // #endregion
-        
-        match create_timelapse(&job_id_clone, frames_dir, output_path, fps, rotation) {
+
+        match create_timelapse_async(
+            &job_id_clone,
+            frames_dir,
+            output_path,
+            fps,
+            rotation,
+            job_store_arc.clone(),
+        ).await {
             Ok(_) => {
-                // #region agent log
-                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                    let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"create_timelapse.rs:59\",\"message\":\"timelapse creation succeeded\",\"data\":{{\"job_id\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), job_id_clone).as_bytes());
-                }
-                // #endregion
-                let mut store = job_store_clone.lock().unwrap();
+                let mut store = job_store_arc.lock().unwrap();
                 store.insert(job_id_clone.clone(), JobStatusType::Completed);
             }
             Err(e) => {
                 let error_msg = format!("{}", e);
-                // #region agent log
-                if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                    let _ = std::io::Write::write_all(&mut file, format!("{{\"id\":\"log_{}_{}\",\"timestamp\":{},\"location\":\"create_timelapse.rs:65\",\"message\":\"timelapse creation failed\",\"data\":{{\"job_id\":\"{}\",\"error\":\"{}\"}},\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"E\"}}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() % 1000000, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(), job_id_clone, error_msg).as_bytes());
-                }
-                // #endregion
-                let mut store = job_store_clone.lock().unwrap();
+                let mut store = job_store_arc.lock().unwrap();
                 // Truncate error message if too long for UI
                 let display_error = if error_msg.len() > 500 {
                     format!("{}...", &error_msg[..500])
                 } else {
-                    error_msg.clone()
+                    error_msg
                 };
                 store.insert(job_id_clone.clone(), JobStatusType::Failed(display_error));
             }

@@ -134,7 +134,7 @@ pub async fn create_timelapse_async(
     let shell = app.shell();
 
     // Try sidecar first (bundled ffmpeg), then fall back to system ffmpeg
-    let spawn_result = if let Ok(sidecar) = shell.sidecar("ffmpeg") {
+    let spawn_result = if let Ok(sidecar) = shell.sidecar("binaries/ffmpeg") {
         match sidecar.args(&args).spawn() {
             Ok(result) => Some(result),
             Err(_) => None,

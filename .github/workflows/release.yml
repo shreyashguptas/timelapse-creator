@@ -17,12 +17,15 @@ jobs:
           - platform: macos-latest
             args: '--target aarch64-apple-darwin'
             name: 'macOS-arm64'
+            ffmpeg_target: 'aarch64-apple-darwin'
           - platform: macos-latest
             args: '--target x86_64-apple-darwin'
             name: 'macOS-x64'
+            ffmpeg_target: 'x86_64-apple-darwin'
           - platform: windows-latest
             args: ''
             name: 'Windows'
+            ffmpeg_target: 'x86_64-pc-windows-msvc'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -50,6 +53,26 @@ jobs:
 
       - name: Install Tauri CLI
         run: cargo install tauri-cli
+
+      - name: Download FFmpeg (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          mkdir -p src-tauri/binaries
+          curl -L "https://evermeet.cx/ffmpeg/ffmpeg-7.1.1.zip" -o ffmpeg.zip
+          unzip ffmpeg.zip
+          mv ffmpeg src-tauri/binaries/ffmpeg-${{ matrix.ffmpeg_target }}
+          chmod +x src-tauri/binaries/ffmpeg-${{ matrix.ffmpeg_target }}
+
+      - name: Download FFmpeg (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries
+          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+          Invoke-WebRequest -Uri $url -OutFile ffmpeg.zip
+          Expand-Archive -Path ffmpeg.zip -DestinationPath ffmpeg-extract
+          $exe = Get-ChildItem -Path ffmpeg-extract -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+          Copy-Item $exe.FullName -Destination "src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe"
 
       - name: Build Tauri app
         run: cargo tauri build ${{ matrix.args }}

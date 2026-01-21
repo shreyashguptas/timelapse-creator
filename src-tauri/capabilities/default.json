@@ -39,7 +39,8 @@
         {
           "name": "ffmpeg",
           "cmd": "ffmpeg",
-          "args": true
+          "args": true,
+          "sidecar": true
         }
       ]
     }

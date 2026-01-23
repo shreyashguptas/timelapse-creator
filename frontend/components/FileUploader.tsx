@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { selectImages, uploadImages, type UploadResponse } from '@/lib/tauri-api';
+import { useState, useRef } from 'react';
+import { uploadFiles, type UploadResponse } from '@/lib/api';
 
 interface FileUploaderProps {
   onUploadComplete: (response: UploadResponse) => void;
@@ -9,71 +9,114 @@ interface FileUploaderProps {
 }
 
 export default function FileUploader({ onUploadComplete, disabled }: FileUploaderProps) {
-  const [isBusy, setIsBusy] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [fileCount, setFileCount] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSelectFiles = async () => {
-    if (disabled || isBusy) return;
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0 || disabled) return;
 
+    setIsUploading(true);
     setError(null);
     setUploadProgress(0);
-    setIsBusy(true); // Prevent multiple clicks while file picker is open
 
     try {
-      // Open native file picker
-      const paths = await selectImages();
+      const fileArray = Array.from(files);
 
-      if (paths.length === 0) {
-        return; // User cancelled
+      const imageFiles = fileArray.filter((file) => {
+        const type = file.type.toLowerCase();
+        return type.startsWith('image/') &&
+               (type.includes('png') || type.includes('jpeg') || type.includes('jpg') || type.includes('webp'));
+      });
+
+      if (imageFiles.length === 0) {
+        throw new Error('No valid image files selected. Please select PNG, JPEG, or WebP files.');
       }
 
-      setIsProcessing(true);
-      setFileCount(paths.length);
-      setUploadProgress(10); // Show initial progress
+      setFileCount(imageFiles.length);
+      console.log(`Starting upload of ${imageFiles.length} files`);
 
-      console.log(`Starting upload of ${paths.length} files`);
+      const response = await uploadFiles(imageFiles, (percent) => {
+        setUploadProgress(percent);
+      });
 
-      // Upload selected files
-      const response = await uploadImages(paths);
-
-      setUploadProgress(100);
       console.log('Upload completed successfully:', response);
 
       if (!response.jobId || !response.fileCount) {
-        throw new Error('Invalid response from upload');
+        throw new Error('Invalid response from server');
       }
 
       onUploadComplete(response);
     } catch (err) {
       console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
+      setIsUploading(false);
+      return;
     } finally {
-      setIsBusy(false);
-      setIsProcessing(false);
+      setIsUploading(false);
     }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleFiles(event.target.files);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!disabled) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!disabled) handleFiles(e.dataTransfer.files);
+  };
+
+  const handleClick = () => {
+    if (!disabled) fileInputRef.current?.click();
   };
 
   return (
     <div className="w-full">
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/png,image/jpeg,image/jpg,image/webp"
+        onChange={handleFileSelect}
+        className="hidden"
+        disabled={isUploading || disabled}
+      />
+
       <button
-        onClick={handleSelectFiles}
-        disabled={isBusy || disabled}
+        onClick={handleClick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        disabled={isUploading || disabled}
         className={`w-full px-4 py-8 sm:px-8 sm:py-12 border-2 border-dashed rounded-2xl transition-all disabled:cursor-not-allowed ${
           disabled
             ? 'border-cream-dark bg-cream-light/50 opacity-60'
+            : isDragging
+            ? 'border-charcoal bg-cream-dark'
             : 'border-cream-dark bg-cream-light hover:border-charcoal-muted hover:bg-cream'
         }`}
       >
         <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4">
-          {isProcessing ? (
+          {isUploading ? (
             <>
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-charcoal/20 border-t-charcoal animate-spin" />
               <div className="text-center">
                 <p className="text-charcoal font-medium text-sm sm:text-base">
-                  Processing {fileCount} files...
+                  Uploading {fileCount} files...
                 </p>
                 <p className="text-charcoal-muted text-xs sm:text-sm mt-1">{uploadProgress}%</p>
               </div>
@@ -103,7 +146,7 @@ export default function FileUploader({ onUploadComplete, disabled }: FileUploade
               </div>
               <div className="text-center">
                 <p className="text-charcoal font-medium text-sm sm:text-base">
-                  Click to select images
+                  Drop images here or click to browse
                 </p>
                 <p className="text-charcoal-muted text-xs sm:text-sm mt-1">
                   PNG, JPEG, WebP supported

@@ -26,6 +26,3 @@ build/
 
 # Temporary files
 /tmp/
-
-# FFmpeg binaries (downloaded during CI)
-src-tauri/binaries/

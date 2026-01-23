@@ -1,6 +1,6 @@
 'use client';
 
-import { type Rotation } from '@/lib/tauri-api';
+import { type Rotation } from '@/lib/api';
 
 interface RotationControlsProps {
   rotation: Rotation;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getPreview, type Rotation } from '@/lib/tauri-api';
+import { getPreviewUrl, type Rotation } from '@/lib/api';
 
 interface ImagePreviewProps {
   jobId: string;
@@ -10,47 +10,48 @@ interface ImagePreviewProps {
 }
 
 export default function ImagePreview({ jobId, fileCount, rotation }: ImagePreviewProps) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadedData, setLoadedData] = useState<{ url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const previewIndex = Math.floor(fileCount / 2);
+  // Compute the expected URL (null if no valid job)
+  const expectedUrl = jobId && fileCount > 0
+    ? getPreviewUrl(jobId, Math.floor(fileCount / 2))
+    : null;
+
+  // Derive loading state from comparison
+  const loading = expectedUrl !== null && (loadedData === null || loadedData.url !== expectedUrl) && error === null;
+  const imageUrl = loadedData?.url ?? null;
 
   useEffect(() => {
-    if (!jobId || fileCount === 0) {
+    if (!expectedUrl) {
+      return;
+    }
+
+    // Check if already loaded
+    if (loadedData?.url === expectedUrl) {
       return;
     }
 
     let cancelled = false;
 
-    const loadPreview = async () => {
-      setLoading(true);
-      setError(null);
-      setImageUrl(null);
-
-      try {
-        const dataUrl = await getPreview(jobId, previewIndex);
-        if (!cancelled) {
-          setImageUrl(dataUrl);
-        }
-      } catch (err) {
-        console.error('Failed to load preview:', err);
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load preview image');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) {
+        setLoadedData({ url: expectedUrl });
+        setError(null);
       }
     };
-
-    loadPreview();
+    img.onerror = () => {
+      if (!cancelled) {
+        setError('Failed to load preview image');
+      }
+    };
+    img.src = expectedUrl;
 
     return () => {
       cancelled = true;
     };
-  }, [jobId, fileCount, previewIndex]);
+  }, [expectedUrl, loadedData?.url]);
 
   if (!jobId || fileCount === 0) {
     return (
@@ -89,7 +90,7 @@ export default function ImagePreview({ jobId, fileCount, rotation }: ImagePrevie
       </div>
 
       <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-center text-charcoal-muted">
-        Frame {previewIndex + 1} of {fileCount}
+        Frame {Math.floor(fileCount / 2) + 1} of {fileCount}
       </p>
     </div>
   );

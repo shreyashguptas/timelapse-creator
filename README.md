@@ -28,15 +28,53 @@ This is the easiest way to run the application.
 
 ### Starting the Application
 
+**Option 1: Using the startup script (recommended)**
+
+```bash
+./start.sh
+```
+
+This script will:
+- Check if the default port is available
+- Prompt you to choose a different port if needed
+- Start the containers and display the URL where the app is running
+
+**Option 2: Using docker-compose directly**
+
 ```bash
 docker-compose up -d --build
 ```
 
-This builds and starts all services (backend, frontend, nginx) in the background.
-
 ### Accessing the App
 
-Open http://localhost in your browser.
+| Port Configuration | Frontend URL |
+|-------------------|--------------|
+| Default (port 80) | http://localhost |
+| Custom port (e.g., 8000) | http://localhost:8000 |
+
+### Using a Custom Port
+
+If port 80 is already in use, you can run on a different port:
+
+```bash
+# Using the startup script
+PORT=8000 ./start.sh
+
+# Or using docker-compose directly
+PORT=8000 docker-compose up -d --build
+```
+
+Then access the app at `http://localhost:8000`
+
+### Finding Where the App is Running
+
+If you forgot which port you used:
+
+```bash
+docker-compose ps
+```
+
+Look for the nginx service - the PORTS column shows `0.0.0.0:PORT->80/tcp` where PORT is your access port.
 
 ### Stopping the Application
 
@@ -207,10 +245,23 @@ Ensure FFmpeg is installed and available in your PATH:
 ffmpeg -version
 ```
 
-### Port already in use
+### Port already in use (Docker)
 
-- For Docker: Change the port mapping in `docker-compose.yml`
-- For local development: Change the port in `backend/src/main.rs` or set `PORT` environment variable
+If port 80 is occupied, use a different port:
+
+```bash
+# Check what's using port 80
+lsof -i :80
+
+# Start on a different port
+PORT=8000 ./start.sh
+# or
+PORT=8000 docker-compose up -d --build
+```
+
+### Port already in use (Local development)
+
+Change the port in `backend/src/main.rs` or set `PORT` environment variable
 
 ### Upload fails
 

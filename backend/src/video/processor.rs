@@ -13,6 +13,12 @@ use crate::models::{JobStatusType, ProcessingProgress};
 
 type JobStore = Arc<Mutex<HashMap<String, JobStatusType>>>;
 
+/// Number of frames at the end to show in slow-motion
+const SLOW_ENDING_FRAMES: usize = 5;
+
+/// FPS for the slow-motion ending (2 fps = 0.5 seconds per frame)
+const SLOW_ENDING_FPS: f64 = 2.0;
+
 /// Parse frame number from FFmpeg stderr line
 /// FFmpeg outputs lines like: frame=  123 fps= 30 q=28.0 size=    1024kB time=00:00:04.10
 fn parse_frame_from_line(line: &str) -> Option<u32> {
@@ -82,14 +88,35 @@ pub async fn create_timelapse_async(
 
     let total_frames = image_files.len() as u32;
 
-    // Create a file list for FFmpeg concat demuxer
+    // Create a file list for FFmpeg concat demuxer with duration for slow-motion ending
     let list_file_path = frames_dir.parent().unwrap().join("filelist.txt");
     let mut list_content = String::new();
-    for filename in &image_files {
+
+    // Calculate durations
+    let normal_duration = 1.0 / fps as f64;
+    let slow_duration = 1.0 / SLOW_ENDING_FPS;
+
+    // Determine which frames get slow-motion treatment
+    let slow_start_index = if image_files.len() > SLOW_ENDING_FRAMES {
+        image_files.len() - SLOW_ENDING_FRAMES
+    } else {
+        0 // If we have fewer frames than SLOW_ENDING_FRAMES, all get slow-mo
+    };
+
+    for (i, filename) in image_files.iter().enumerate() {
         let file_path = frames_dir.join(filename);
         let abs_path = file_path.canonicalize().unwrap_or(file_path);
         let path_str = abs_path.to_string_lossy().replace('\'', "'\\''");
+
+        // Use slow duration for the last few frames
+        let duration = if i >= slow_start_index {
+            slow_duration
+        } else {
+            normal_duration
+        };
+
         list_content.push_str(&format!("file '{}'\n", path_str));
+        list_content.push_str(&format!("duration {:.6}\n", duration));
     }
     fs::write(&list_file_path, &list_content).context("Failed to create file list")?;
 
@@ -113,12 +140,12 @@ pub async fn create_timelapse_async(
     let mut cmd = TokioCommand::new("ffmpeg");
 
     // Input settings using concat demuxer
+    // Note: We don't set -r before -i because we use duration directives in the file list
+    // for the slow-motion ending effect. The durations control frame display time.
     cmd.arg("-f")
         .arg("concat")
         .arg("-safe")
         .arg("0")
-        .arg("-r")
-        .arg(fps.to_string())
         .arg("-i")
         .arg(&list_file_path);
 
